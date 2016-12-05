@@ -1,6 +1,8 @@
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
-public class SuperArray extends ArrayList implements Iterable<String> {
+public class SuperArray extends ArrayList<String> implements Iterable<String> {
     public SuperArray() {super();}
     public Iterator<String> iterator() {
 	return new SuperArrayIterator(this);
@@ -11,7 +13,7 @@ class SuperArrayIterator implements Iterator<String> {
     private SuperArray data;
     private int i;
 
-    public SupperArrayIterator(SuperArray S) {
+    public SuperArrayIterator(SuperArray S) {
 	data = S;
 	i = 0;
     }
@@ -22,7 +24,7 @@ class SuperArrayIterator implements Iterator<String> {
 
     public String next() {
 	try {
-	    return data.get(i);
+	    return data.get(i++);
 	} catch (IndexOutOfBoundsException e) {
 	    throw new NoSuchElementException();
 	}
