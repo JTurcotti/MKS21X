@@ -1,5 +1,9 @@
 import java.util.Arrays;
+import java.lang.reflect.*;
+import java.lang.annotation.*;
+import java.util.Random;
 
+@Retention(RetentionPolicy.RUNTIME)
 @interface SortAlgorithm {}
 
 public class Sorts {
@@ -35,15 +39,33 @@ public class Sorts {
 	    while (j>0 && data[j]<data[j-1]) swap(data, j, --j);
 	}
     }
-	    
+
+    @SortAlgorithm
+    public static void bubbleSort(int[] data) {
+	for (int j=data.length-1; j>0; j--) for (int i=0; i<j; i++) if (data[i]>data[i+1]) swap(data, i,i+1);
+    }
 
 
-    public static void main(String[] args) {
-	int[] arr = new int[] {1, 2, 3, 6, 5, 4, 7, 4, 7, 3, 5};
-	selectionSort(arr);
-	System.out.println(isOrdered(arr));
-	insertionSort(arr);
-	System.out.println(isOrdered(arr));
+    public static void mergeSort(int[] data) {
+	
+
+    public static long getRuntime(Method algorithm, int size) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+	int[] arr = new int[size];
+	Random r = new Random();
+	for (int i=0; i<size; i++) arr[i]=r.nextInt();
+	long start = System.currentTimeMillis();
+	algorithm.invoke(null, arr);
+	long runtime = System.currentTimeMillis() - start;
+	if (isOrdered(arr)) return runtime; else return -1L;
+    }
+
+    public static void main(String[] args) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+	for (Method me: Sorts.class.getDeclaredMethods()) {
+	    if (me.getAnnotation(SortAlgorithm.class)!=null) {
+		long runtime = getRuntime(me, 10000);
+		System.out.println(me.getName() + ":      " + runtime + " ms");
+	    }
+	}
     }
 }
 		
