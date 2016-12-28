@@ -51,8 +51,8 @@ public class Board {
     public int isTerminal(int color) {
 	int v = 0;
 	for (int win: WIN) {
-	    if ((oBoard & win) == win) return color;
-	    if ((xBoard & win) == win) return color * -1;
+	    if ((oBoard & win) == win) return color; //checks if masking the oBoard by the given win mask produces a corresponding win board
+	    if ((xBoard & win) == win) return color * -1; //does the same for xBoard, but returns the opposite color's win
 	}
 	return 0;
     }
@@ -64,10 +64,10 @@ public class Board {
     public String toString() {
 	String out = "";
 	for (int i=0; i<9; i++) {
-	    if (((1 << i) & oBoard) != 0) out+="O";
-	    else if (((1 << i) & xBoard) != 0) out+="X";
+	    if (((1 << i) & oBoard) != 0) out+="O"; //tests if there is an O at position i of the board
+	    else if (((1 << i) & xBoard) != 0) out+="X"; //does the same for X
 	    else out+="_";
-	    if (i%3==2) out +="\n";
+	    if (i%3==2) out +="\n"; //inserts newlines after every three places
 	}
 	return out;
     }
@@ -81,7 +81,7 @@ public class Board {
 	for (int i=0; i<9; i++) {
 	    if (((1 << i) & oBoard) != 0) out+="O";
 	    else if (((1 << i) & xBoard) != 0) out+="X";
-	    else out+=i;
+	    else out+=i; //only difference from previous method
 	    if (i%3==2) out +="\n";
 	}
 	return out;
@@ -92,12 +92,12 @@ public class Board {
      * @return a modified copy of the Board if the specified slot is empty, else the NULL board
      */
     public Board place(int color, int i) {
-	if (((1 << i) & (oBoard | xBoard)) == 0) {
+	if (((1 << i) & (oBoard | xBoard)) == 0) { //tests if the board is empty at position i
 	    if (color == 1)
-		return new Board(oBoard | (1 << i), xBoard);
-	    else return new Board(oBoard, xBoard | (1 << i));
+		return new Board(oBoard | (1 << i), xBoard); //adds an X at position i
+	    else return new Board(oBoard, xBoard | (1 << i)); //adds an O at position i
 	}
-	return NULL;
+	return NULL; //represents invalid placement
     }
 
     /**
@@ -106,15 +106,15 @@ public class Board {
      * @param color the color of the tokens to add
      */
     public Board[] children(int color) {
-	int m = ~(oBoard | xBoard) & 0b111111111;
-	Board[] children = new Board[Integer.bitCount(m)];
+	int m = ~(oBoard | xBoard) & 0b111111111; //bitboard representing all slots that are empty in this board
+	Board[] children = new Board[Integer.bitCount(m)]; //array with size = the number of empty slots in this board
 	int i=0;
 	for (int j=0; j<9; j++) {
-	    if (((1 << j) & m) != 0) {
+	    if (((1 << j) & m) != 0) { //tests if the board is empty at position j
 		if (color == 1) {
-		    children[i++] = new Board(oBoard | (1 << j), xBoard);
+		    children[i++] = new Board(oBoard | (1 << j), xBoard); //adds a 1 at j in the oBoard
 		} else {
-		    children[i++] = new Board(oBoard, xBoard | (1 << j));
+		    children[i++] = new Board(oBoard, xBoard | (1 << j)); //adds a 1 at j in the xBoard
 		}
 	    }
 	}
@@ -130,15 +130,15 @@ public class Board {
      */
     public static int value(Board b, int color, int depth) {
 	int t = b.isTerminal(color);
-	if (t!=0) return 10*t-depth;
-	if (depth==0 || ((b.oBoard | b.xBoard) == 0b111111111)) return 0;
+	if (t!=0) return 10*t-depth; //if the board is a win for either color, return a positive or negative number whose magnitude is inversely proportional to its depth from the root node
+	if (depth==0 || ((b.oBoard | b.xBoard) == 0b111111111)) return 0; //bottom of recursion or full board condition, returns neutral value
 	int max = Integer.MIN_VALUE;
 	for (Board c: b.children(color)) {
 	    //pr(c + "with value " + value(c, color * -1, depth-1) + " for " + (color * -1) + " at depth " + depth);
 	    int v = value(c, color * -1, depth-1);
 	    max = Math.max(max, -v);
 	}
-	return max;
+	return max; //returns the negative of the worst-valued child board of this board for the enemy, i.e. the negamax value of this node
     }
 
     /** Modifies the current board to contain the placement of a token of the specified color that results in the minimum value of the resulting board for the opponent. Computed by attempting each placement and for all those non-NULL valued children finding that with the maximum negative value of the call to value with the specified depth
@@ -148,7 +148,7 @@ public class Board {
     public void compMove(int color, int depth) {
 	int i = 0;
 	int max = Integer.MIN_VALUE;
-	for (int j=0; j<9; j++) {
+	for (int j=0; j<9; j++) { //difference between this method and previous, this one keep track of actual positions of token placement so that it can be later replicated
 	    Board c = place(color, j);
 	    //pr("Testing board with placement at " + j);
 	    if (c!=NULL) {
@@ -161,7 +161,7 @@ public class Board {
 	    }// else pr("Failure due to overlap");
 	}
 	//pr("choosing place " + i + " with value " + max);
-	set(place(color, i));
+	set(place(color, i)); //replication of best case token placement (child with highest negamax value)
     }
 
     /** Modifies the current board to contain the placement of a token of the specified color at a position specified by player input. Illegal input result in a reissue of the prompt until proper input is given
@@ -201,14 +201,14 @@ public class Board {
 	}
 	System.out.println(this);
 
-	if ((oBoard | xBoard) == 0b111111111) {
+	if ((oBoard | xBoard) == 0b111111111) { //tests if board is full, returns false if so to end game with tie
 	    System.out.println("Tie");
 	    return false;
 	}
-	if (isTerminal(color) == 0) return true;
-	if ((isTerminal(color) == 1) == real)
+	if (isTerminal(color) == 0) return true; //tests if board is non-full, but inconclusive, returns true to continue game
+	if ((isTerminal(color) == 1) == real) //tests if board is a win and the active is player, or board is loss and the active is computer, i.e. win for player
 	    System.out.println("Win for player");
-	else 
+	else //otherwise win for computer
 	    System.out.println("Win for computer");
 	return false;
     }
@@ -221,14 +221,14 @@ public class Board {
 	Board b = new Board();
 	int color = 1;
 	System.out.println(b);
-	while(b.makeMove(real, color, depth)) {
-	    real = !real;
-	    color = -1 * color;
+	while (b.makeMove(real, color, depth)) { //continues to make moves until returns false
+	    real = !real; //switches player
+	    color = -1 * color; //switches color
 	}
     }
 
     public static void main(String[] args) {
-	playGame(true, 10);	
+	playGame(true, 10); // player starts, negamax at 10 ply
     }  
 
     static void pr(Object s) {
