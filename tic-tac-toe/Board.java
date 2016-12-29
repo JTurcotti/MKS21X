@@ -166,11 +166,11 @@ public class Board {
      * @param color the color of the tokens to add
      */
     public Board[] children(int color) {
-	long m = ~(oBoard | xBoard) & 0b111111111; //bitboard representing all slots that are empty in this board
-	Board[] children = new Board[Long.bitCount(m)]; //array with size = the number of empty slots in this board
+	long spaces = ~(oBoard | xBoard) & ((1<<(m*n))-1); //bitboard representing all slots that are empty in this board
+	Board[] children = new Board[Long.bitCount(spaces)]; //array with size = the number of empty slots in this board
 	int i=0;
-	for (int j=0; j<9; j++) {
-	    if (((1 << j) & m) != 0) children[i++] = place(color, j); //if the board is nonempty at position j, place a token at j
+	for (int j=0; j<m*n; j++) {
+	    if (((1 << j) & spaces) != 0) children[i++] = place(color, j); //if the board is nonempty at position j, place a token at j
 	}
 	return children;
     }
@@ -182,15 +182,19 @@ public class Board {
      * @param depth the depth to which the algotithm will be run
      * @return the value of the board
      */
-    public static int value(Board b, int color, int depth) {
+    public static int value(Board b, int color, int depth, int lower, int upper) {
+	if (b==null) return 0; //not sure if i need this...
 	int t = b.isTerminal(color);
 	if (t!=0) return 10*t-depth; //if the board is a win for either color, return a positive or negative number whose magnitude is inversely proportional to its depth from the root node
-	if (depth==0 || ((b.oBoard | b.xBoard) == 0b111111111)) return 0; //bottom of recursion or full board condition, returns neutral value
+	if (depth==0 || ((b.oBoard | b.xBoard) == ((1<<(b.m*b.n))-1))) return 0; //bottom of recursion or full board condition, returns neutral value
 	int max = Integer.MIN_VALUE;
 	for (Board c: b.children(color)) {
 	    //pr(c + "with value " + value(c, color * -1, depth-1) + " for " + (color * -1) + " at depth " + depth);
-	    int v = value(c, color * -1, depth-1);
-	    max = Math.max(max, -v);
+	    int v = -1 * value(c, color * -1, depth-1, upper * -1, lower * -1);
+	    max = Math.max(max, v);
+	    lower = Math.max(lower, v);
+	    upper = Math.min(lower, v);
+	    if (lower >= upper) break;
 	}
 	return max; //returns the negative of the worst-valued child board of this board for the enemy, i.e. the negamax value of this node
     }
@@ -202,11 +206,11 @@ public class Board {
     public void compMove(int color, int depth) {
 	int i = 0;
 	int max = Integer.MIN_VALUE;
-	for (int j=0; j<9; j++) { //difference between this method and previous, this one keep track of actual positions of token placement so that it can be later replicated
+	for (int j=0; j<m*n; j++) { //difference between this method and previous, this one keep track of actual positions of token placement so that it can be later replicated
 	    Board c = place(color, j);
 	    //pr("Testing board with placement at " + j);
 	    if (c!=NULL) {
-		int v = -value(c, color * -1, depth);
+		int v = -1 * value(c, color * -1, depth, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		//pr(c + "with value " + -v + " for " + color * -1);
 		if (v>max) {
 		    i = j;
@@ -255,7 +259,7 @@ public class Board {
 	}
 	System.out.println(this);
 
-	if ((oBoard | xBoard) == 0b111111111) { //tests if board is full, returns false if so to end game with tie
+	if ((oBoard | xBoard) == (1<<(m*n))-1) { //tests if board is full, returns false if so to end game with tie
 	    System.out.println("Tie");
 	    return false;
 	}
@@ -282,7 +286,10 @@ public class Board {
     }
 
     public static void main(String[] args) {
-	playGame(4, 4, 4, true, 10);
+	int m = Integer.parseInt(args[0]);
+	int n = Integer.parseInt(args[1]);
+	int k = Integer.parseInt(args[2]);
+	playGame(m, n, k, false, 5*(m+n)/k);
     }  
 
     static void pr(Object s) {
