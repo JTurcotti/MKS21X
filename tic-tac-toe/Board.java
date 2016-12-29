@@ -1,3 +1,9 @@
+import java.util.Set;
+import java.util.HashSet;
+import java.util.List;
+import java.util.ArrayList;
+
+
 /**
  * <h1> Interactive game of tic tac toe <h1>
  * Upon execution of the main method a call to playGame begins an interactive game of tic tac toe
@@ -6,32 +12,88 @@
 
 public class Board {
     /** A bitboard containing the positions of X tokens */
-    int oBoard;
+    long oBoard;
 
     /** A bitboard containing the positins of ) tokens */
-    int xBoard;
+    long xBoard;
 
-    /** An array of bit masks representing 3-in-a-rows */
-    static final int[] WIN = {448,56,7,292,146,73,273,273};
+    /** ints representing the height, width, and win condition length of the board */    
+    public final int m, n, k;
+
+    /** An array of bit masks representing k length runs */
+    Set<Long> WIN_RUNS = new HashSet<Long>();
 
     /** A symbolic instance of Board used to reference the result of illegal moves*/
-    private static final Board NULL = new Board(0,0);
+    private static final Board NULL = new Board();
 
-    /** Constucts a board with the specified O and X bitboards */
-    public Board(int oBoard, int xBoard) {
+
+    /** Construcsts a new mxn board with an n-in-a-row win requirement and generates with win runs
+     * @param m the height of the board
+     * @param n the width of the board
+     * @param k the number of consecutive tokens needed to win
+     */
+    public Board(int m, int n, int k) {
+	this.m = m;
+	this.n = n;
+	this.k = k;
+	genRuns();
+    }
+
+    /** Constucts a board with the same dimensions as another, but different O and X bit boards */
+    public Board(Board b, long oBoard, long xBoard) {
+	this.m = b.m;
+	this.n = b.n;
+	this.k = b.k;
+	this.WIN_RUNS = b.WIN_RUNS;
 	this.oBoard = oBoard;
 	this.xBoard = xBoard;
     }
 
-    /** Constructs a board as copy of specifiec board */
-    public Board(Board b) {
-	oBoard = b.oBoard;
-	xBoard = b.xBoard;
-    }
-
     /** Constructs an empty board */
     public Board() {
-	this(0,0);
+	this(0,0,0);
+    }
+
+    private void genRuns() {
+	if (m<=0 || n<=0 || k<=0) return;
+
+	//This is slightly ineffecient, as the same vertical and horizontal runs will be added multiple times
+	//but it doesn't make that much of a difference in performce because it runs only one time
+	List<Long> bases = new ArrayList<Long>();
+	long[] horizontal = new long[k];
+	long[] vertical = new long[k];
+	for (int i=0; i<k; i++) {
+	    for (int j=0; j<k; j++) {
+		horizontal[i]+= (1<<j)*(1<<(i*n));
+		vertical[j]+= (1<<j)*(1<<(i*n));
+	    }
+	}
+	for (long x: horizontal) bases.add(x);
+	for (long x: vertical) bases.add(x);
+	
+	long forward = 0;
+	long backward = 0;
+	for (int i=0; i<k; i++) {
+	    forward+= 1<<((n+1)*i);
+	    backward+= 1<<((n-1)*i+(k-1));
+	}
+	bases.add(forward);
+	bases.add(backward);
+
+	for (int i=0;  i<=n-k; i++) {
+	    for (long j=0; j<=m-k; j++) {
+		for (long x: bases) {
+		    x *= 1<<i;
+		    x *= 1<<(j*n);
+		    WIN_RUNS.add(x);
+		}
+	    }
+	}
+    }
+
+    /** Checks if the m,n,k values of this and another specificed board match */
+    public boolean matches(Board b) {
+	return m==b.m && n==b.n && k==b.k;
     }
 
     /**
@@ -49,8 +111,7 @@ public class Board {
      * @param color the color from whose perspective to test
      */
     public int isTerminal(int color) {
-	int v = 0;
-	for (int win: WIN) {
+	for (long win: WIN_RUNS) {
 	    if ((oBoard & win) == win) return color; //checks if masking the oBoard by the given win mask produces a corresponding win board
 	    if ((xBoard & win) == win) return color * -1; //does the same for xBoard, but returns the opposite color's win
 	}
@@ -63,11 +124,11 @@ public class Board {
      */
     public String toString() {
 	String out = "";
-	for (int i=0; i<9; i++) {
+	for (int i=0; i<m*n; i++) {
 	    if (((1 << i) & oBoard) != 0) out+="O"; //tests if there is an O at position i of the board
 	    else if (((1 << i) & xBoard) != 0) out+="X"; //does the same for X
 	    else out+="_";
-	    if (i%3==2) out +="\n"; //inserts newlines after every three places
+	    if (i%n==n-1) out +="\n"; //inserts newlines after every three places
 	}
 	return out;
     }
@@ -78,11 +139,11 @@ public class Board {
      */
     public String toStringVisible() {
 	String out = "";
-	for (int i=0; i<9; i++) {
+	for (int i=0; i<m*n; i++) {
 	    if (((1 << i) & oBoard) != 0) out+="O";
 	    else if (((1 << i) & xBoard) != 0) out+="X";
 	    else out+=i; //only difference from previous method
-	    if (i%3==2) out +="\n";
+	    if (i%n==n-1) out +="\n";
 	}
 	return out;
     }
@@ -93,9 +154,8 @@ public class Board {
      */
     public Board place(int color, int i) {
 	if (((1 << i) & (oBoard | xBoard)) == 0) { //tests if the board is empty at position i
-	    if (color == 1)
-		return new Board(oBoard | (1 << i), xBoard); //adds an X at position i
-	    else return new Board(oBoard, xBoard | (1 << i)); //adds an O at position i
+	    if (color == 1) return new Board(this, oBoard | (1 << i), xBoard); //adds an X at position i
+	    else return new Board(this, oBoard, xBoard | (1 << i)); //adds an O at position i
 	}
 	return NULL; //represents invalid placement
     }
@@ -106,17 +166,11 @@ public class Board {
      * @param color the color of the tokens to add
      */
     public Board[] children(int color) {
-	int m = ~(oBoard | xBoard) & 0b111111111; //bitboard representing all slots that are empty in this board
-	Board[] children = new Board[Integer.bitCount(m)]; //array with size = the number of empty slots in this board
+	long m = ~(oBoard | xBoard) & 0b111111111; //bitboard representing all slots that are empty in this board
+	Board[] children = new Board[Long.bitCount(m)]; //array with size = the number of empty slots in this board
 	int i=0;
 	for (int j=0; j<9; j++) {
-	    if (((1 << j) & m) != 0) { //tests if the board is empty at position j
-		if (color == 1) {
-		    children[i++] = new Board(oBoard | (1 << j), xBoard); //adds a 1 at j in the oBoard
-		} else {
-		    children[i++] = new Board(oBoard, xBoard | (1 << j)); //adds a 1 at j in the xBoard
-		}
-	    }
+	    if (((1 << j) & m) != 0) children[i++] = place(color, j); //if the board is nonempty at position j, place a token at j
 	}
 	return children;
     }
@@ -125,7 +179,7 @@ public class Board {
      * Returns the integer value of the specified Board from the perspective of the specified color, recursively evaluating to the specified depth with an implementation of the negamax algorithm.
      * @param b the Board to evaluate
      * @param color the color from whose perspective to evaluate the value
-     * @param depth the depth to which the algorithm will be run
+     * @param depth the depth to which the algotithm will be run
      * @return the value of the board
      */
     public static int value(Board b, int color, int depth) {
@@ -174,7 +228,7 @@ public class Board {
 	    int move = 0;
 	    try {
 		move = Integer.parseInt(System.console().readLine());
-		if (move<0 || move>=9) throw new NumberFormatException();
+		if (move<0 || move>=m*n) throw new NumberFormatException();
 	    } catch (NumberFormatException nbfme) {
 		System.out.print("Choose an integer present on board: ");
 		continue;
@@ -217,8 +271,8 @@ public class Board {
      * @param real true if the game will be began by player input
      * @param depth the depth to which the algorithm will be run
      */
-    public static void playGame(boolean real, int depth) {
-	Board b = new Board();
+    public static void playGame(int m, int n, int k, boolean real, int depth) {
+	Board b = new Board(m, n, k);
 	int color = 1;
 	System.out.println(b);
 	while (b.makeMove(real, color, depth)) { //continues to make moves until returns false
@@ -228,7 +282,7 @@ public class Board {
     }
 
     public static void main(String[] args) {
-	playGame(true, 10); // player starts, negamax at 10 ply
+	playGame(4, 4, 4, true, 10);
     }  
 
     static void pr(Object s) {
