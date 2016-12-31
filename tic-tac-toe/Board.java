@@ -64,8 +64,8 @@ public class Board {
 	long[] vertical = new long[k];
 	for (int i=0; i<k; i++) {
 	    for (int j=0; j<k; j++) {
-		horizontal[i]+= (1<<j)*(1<<(i*n));
-		vertical[j]+= (1<<j)*(1<<(i*n));
+		horizontal[i]+= 1<<(j+i*n);
+		vertical[j]+= 1<<(j+i*n);
 	    }
 	}
 	for (long x: horizontal) bases.add(x);
@@ -124,13 +124,16 @@ public class Board {
      */
     public String toString() {
 	String out = "";
+	int len = Integer.toString(m*n-1).length()+1;
 	for (int i=0; i<m*n; i++) {
-	    if (((1 << i) & oBoard) != 0) out+="O"; //tests if there is an O at position i of the board
-	    else if (((1 << i) & xBoard) != 0) out+="X"; //does the same for X
-	    else out+="_";
-	    if (i%n==n-1) out +="\n"; //inserts newlines after every three places
+	    String s = "_";
+	    if (((1 << i) & oBoard) != 0) s="O";
+	    else if (((1 << i) & xBoard) != 0) s="X";
+	    out+=String.format(String.format("%%%ds", len), s);
+	    if (i%n==n-1) out +="\n";
 	}
 	return out;
+
     }
 
     /**
@@ -139,10 +142,24 @@ public class Board {
      */
     public String toStringVisible() {
 	String out = "";
+	int len = Integer.toString(m*n-1).length()+1;
 	for (int i=0; i<m*n; i++) {
-	    if (((1 << i) & oBoard) != 0) out+="O";
-	    else if (((1 << i) & xBoard) != 0) out+="X";
-	    else out+=i; //only difference from previous method
+	    String s = Integer.toString(i);  //only difference from previous method
+	    if (((1 << i) & oBoard) != 0) s="O";
+	    else if (((1 << i) & xBoard) != 0) s="X";
+	    out+=String.format(String.format("%%%ds", len), s);
+	    if (i%n==n-1) out +="\n";
+	}
+	return out;
+    }
+
+    public String longToString(long l) {
+	String out = "";
+	int len = Integer.toString(m*n-1).length()+1;
+	for (int i=0; i<m*n; i++) {
+	    String s = "_";
+	    if (((1 << i) & l) != 0) s="O";
+	    out+=String.format(String.format("%%%ds", len), s);
 	    if (i%n==n-1) out +="\n";
 	}
 	return out;
@@ -189,14 +206,19 @@ public class Board {
 	if (depth==0 || ((b.oBoard | b.xBoard) == ((1<<(b.m*b.n))-1))) return 0; //bottom of recursion or full board condition, returns neutral value
 	int max = Integer.MIN_VALUE;
 	for (Board c: b.children(color)) {
-	    //pr(c + "with value " + value(c, color * -1, depth-1) + " for " + (color * -1) + " at depth " + depth);
+	    if (depth==9) {
+		//pr(c + "with value " + value(c, color * -1, depth-1, upper * -1, lower * -1) + " for " + (color * -1) + " at depth " + depth);
+	    }
 	    int v = -1 * value(c, color * -1, depth-1, upper * -1, lower * -1);
 	    max = Math.max(max, v);
 	    lower = Math.max(lower, v);
-	    upper = Math.min(lower, v);
 	    if (lower >= upper) break;
 	}
 	return max; //returns the negative of the worst-valued child board of this board for the enemy, i.e. the negamax value of this node
+    }
+
+    public int value(int color, int depth) {
+	return value(this, color, depth, Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     /** Modifies the current board to contain the placement of a token of the specified color that results in the minimum value of the resulting board for the opponent. Computed by attempting each placement and for all those non-NULL valued children finding that with the maximum negative value of the call to value with the specified depth
@@ -208,15 +230,15 @@ public class Board {
 	int max = Integer.MIN_VALUE;
 	for (int j=0; j<m*n; j++) { //difference between this method and previous, this one keep track of actual positions of token placement so that it can be later replicated
 	    Board c = place(color, j);
-	    //pr("Testing board with placement at " + j);
+	    //pr("\nTesting board with placement at " + j);
 	    if (c!=NULL) {
 		int v = -1 * value(c, color * -1, depth, Integer.MIN_VALUE, Integer.MAX_VALUE);
-		//pr(c + "with value " + -v + " for " + color * -1);
+		//pr(c + "0b" + Long.toBinaryString(c.oBoard) + ", 0b" + Long.toBinaryString(c.xBoard) + "\nwith value " + -v + " for " + color * -1);
 		if (v>max) {
 		    i = j;
 		    max = v;
 		}
-	    }// else pr("Failure due to overlap");
+	    } //else pr("Failure due to overlap");
 	}
 	//pr("choosing place " + i + " with value " + max);
 	set(place(color, i)); //replication of best case token placement (child with highest negamax value)
@@ -270,7 +292,17 @@ public class Board {
 	    System.out.println("Win for computer");
 	return false;
     }
-    
+
+    public static boolean playerFirst() {
+	System.out.print("Allow computer to make first move? ");
+	while (true) {
+	    String input = System.console().readLine().toLowerCase();
+	    if (input.equals("y") || input.equals("yes")) return false;
+	    if (input.equals("n") || input.equals("no")) return true;
+	    System.out.print("Enter yes or no: ");
+	}
+    }
+
     /** Runs an interactive game of tic tac toe by repeatedly calling makeMove with alternting values of real and color
      * @param real true if the game will be began by player input
      * @param depth the depth to which the algorithm will be run
@@ -289,7 +321,7 @@ public class Board {
 	int m = Integer.parseInt(args[0]);
 	int n = Integer.parseInt(args[1]);
 	int k = Integer.parseInt(args[2]);
-	playGame(m, n, k, false, 5*(m+n)/k);
+	playGame(m, n, k, playerFirst(), 3*(m+n)/k);
     }  
 
     static void pr(Object s) {
