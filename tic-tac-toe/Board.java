@@ -2,6 +2,8 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 
 /**
@@ -26,7 +28,8 @@ public class Board {
     /** A symbolic instance of Board used to reference the result of illegal moves*/
     private static final Board NULL = new Board();
 
-
+    final static Map<Board, BoardValue> table = new HashMap<>();;
+    
     /** Construcsts a new mxn board with an n-in-a-row win requirement and generates with win runs
      * @param m the height of the board
      * @param n the width of the board
@@ -192,6 +195,12 @@ public class Board {
 	return children;
     }
 
+    public static int lookupValue(Board b, int color, int depth) {
+	if (!table.containsKey(b)) return 0;
+	BoardValue v = table.get(b);
+	if (depth - v.depth <= 1) return v.getValue(color); else return 0;
+    }
+    
     /**
      * Returns the integer value of the specified Board from the perspective of the specified color, recursively evaluating to the specified depth with an implementation of the negamax algorithm.
      * @param b the Board to evaluate
@@ -200,6 +209,11 @@ public class Board {
      * @return the value of the board
      */
     public static int value(Board b, int color, int depth, int lower, int upper) {
+	int lookup = lookupValue(b, color, depth); //check transposition tables
+	if (lookup != 0) {
+	    pr("table lookup at depth " + depth);
+	    return lookup;
+	}
 	if (b==null) return 0; //not sure if i need this...
 	int t = b.isTerminal(color);
 	if (t!=0) return 10*t-depth; //if the board is a win for either color, return a positive or negative number whose magnitude is inversely proportional to its depth from the root node
@@ -212,8 +226,11 @@ public class Board {
 	    int v = -1 * value(c, color * -1, depth-1, upper * -1, lower * -1);
 	    max = Math.max(max, v);
 	    lower = Math.max(lower, v);
-	    if (lower >= upper) break;
+	    if (lower >= upper) {
+		break;
+	    }
 	}
+	table.merge(b, new BoardValue(depth, max, color), (BoardValue b1, BoardValue b2) -> b1.superior(b2));
 	return max; //returns the negative of the worst-valued child board of this board for the enemy, i.e. the negamax value of this node
     }
 
@@ -307,13 +324,19 @@ public class Board {
      * @param real true if the game will be began by player input
      * @param depth the depth to which the algorithm will be run
      */
-    public static void playGame(int m, int n, int k, boolean real, int depth) {
+    public static void playGame(int m, int n, int k, int depth) {
 	Board b = new Board(m, n, k);
 	int color = 1;
+	int val = b.value(color, depth+2);
+	if (val == 0) pr("expected tie");
+	if (val > 0) pr ("expected win");
+	if (val < 0) pr ("expected loss"); //this should never trigger
+	pr("initial table size: " + table.size());
 	System.out.println(b);
+	boolean real = playerFirst();
 	while (b.makeMove(real, color, depth)) { //continues to make moves until returns false
 	    real = !real; //switches player
-	    color = -1 * color; //switches color
+	    color *= -1; //switches color
 	}
     }
 
@@ -321,7 +344,7 @@ public class Board {
 	int m = Integer.parseInt(args[0]);
 	int n = Integer.parseInt(args[1]);
 	int k = Integer.parseInt(args[2]);
-	playGame(m, n, k, playerFirst(), 3*(m+n)/k);
+	playGame(m, n, k,  4*(m+n)/k+1);
     }  
 
     static void pr(Object s) {
@@ -330,3 +353,25 @@ public class Board {
 }
 		
 	
+class BoardValue implements Comparable<BoardValue> {
+    public final int depth;
+    private final int value; //private because it contaisn potentially lossy color indepedent value
+    public BoardValue(int depth, int value, int color) {
+	this.depth = depth;
+	this.value = value * color;
+    }
+    public static final BoardValue NULL = new BoardValue(0, 0, 0);
+    public int compareTo(BoardValue v) {
+	return v.value - value;
+    }
+    public int getValue(int color) {
+	return value * color;
+    }
+    public BoardValue superior(BoardValue other) {
+	if (depth > other.depth) {
+	    return new BoardValue(depth, value, 1);
+	} else {
+	    return new BoardValue(other.depth, other.getValue(1), 1);
+	}
+    }
+}
