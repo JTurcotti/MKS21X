@@ -198,7 +198,7 @@ public class Board {
     public static int lookupValue(Board b, int color, int depth) {
 	if (!table.containsKey(b)) return 0;
 	BoardValue v = table.get(b);
-	if (depth - v.depth <= 1) return v.getValue(color); else return 0;
+	if (depth - v.depth <= 2) return v.getValue(color); else return 0; // constant is the tolerance for depth shearing
     }
     
     /**
@@ -235,6 +235,7 @@ public class Board {
     }
 
     public int value(int color, int depth) {
+	
 	return value(this, color, depth, Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
